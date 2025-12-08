@@ -8,8 +8,9 @@ extern WriteFile
 section .data ;variables
 ;DB automatically allocates space for variables
         newline: db 10
-        message: db "Hello World!";
+        message: db "lHdeelo W",0;
 
+        toPrint: db 0
       ;  currentDig: db 0;
 
 section .text           ; code section.
@@ -20,86 +21,63 @@ push rbp
 mov rbp, rsp
 sub rsp, 10*16
 
-mov rdx, message
-call printADR_;
+mov r13, 900
+mov r14, message
+lab:
+mov rdx, r14
+mov r8, 128
+call print_
+call endl_
+dec r13
+add r14, 128
+cmp r13, 0
+jg lab
 
 mov rsp, rbp;
 pop rbp;
 ret
 
-test:
-        push rbp
-        mov rbp, rsp
-        sub rsp, 10*16
+printTZ_:
+push rbp
+mov rbp, rsp
+sub rsp, 10*16
 
-        mov rbx, 0
-        touterloop:
-
-                mov r13, rsp
-                sub r13, msg
-                mov [r13], 'h'
-                mov rdx, msg
-                mov r8, 5
-                call printADR_
-
-        inc rbx
-        cmp rbx, 5
-        jl touterloop
-
-        mov rsp, rbp;
-        pop rbp;
-        ret
-
-zelensky:	
-        push rbp
-        mov rbp, rsp
-        sub rsp, 10*16;
-
-        mov r13,0
-        outerloop:
-               mov r14, msg;
-               add r14, r13
-                mov r15,[r14]
-                mov rbx, r15;
-                sub rbx, 10;
-        ;        add rbx, r14;
-            ;    sub rbx, 20
-                myloop:      
-                        inc rbx;       
-                        mov rdx, msg  
-                        mov r8, r13
-                        call printADR_;
-
-                        
-                        mov rdx, rbx
-                        mov r8, 1
-                        call printVAL_;
+mov r12, rdx
+loop:
+; message is already in rdx
+mov rbx, [r12]
+mov rdx, r12
+mov r8, 1
+call print_
+inc r12
+cmp rbx, 0
+jnz loop
 
 
-                        
-                        
-                        call endl_
-            
-                ;mov rcx, 'x';
-                cmp rbx, r15;
-                jl myloop
+mov rsp, rbp;
+pop rbp;
+ret
 
-        inc r13,
-        cmp r13, len
-        jl outerloop
+example:
+push rbp
+mov rbp, rsp
+sub rsp, 10*16
 
-                ;call ExitProcess 
-                ;add rsp, 48; //return stack space      
-                ;mov rax, 99; //return code!! works!! when i do %errorlevel% it shows 99. interesting
-                ;if i dont set an exit code myself, the exit code will be the last exit code (in this case from writefile)
-              ;  call WriteConsoleA
-              
-                mov rax, 0;
+;[] brackets are used for dereferencing
+;treat the value inside the register as an address
 
-        mov rsp, rbp;
-        pop rbp;
-        ret
-;
+mov rbx, message ;get the pointer to the message into rbx
+mov rbx, [rbx] ;use pointer to get the value of first char into rbx
+inc rbx
+mov rdx, message
+mov [rdx], rbx ;move the updated value into the first byte using the message pointer
+mov r8, 1
+call print_
+
+
+mov rsp, rbp;
+pop rbp;
+ret
 
 endl_:
         push rbp
@@ -108,7 +86,7 @@ endl_:
 
                 mov r8,1
                 mov rdx, newline
-                call printADR_
+                call print_
                         
         mov rsp, rbp;
         pop rbp;
@@ -117,7 +95,7 @@ endl_:
 
 ; RDX in: pointer to message 2 be written
 ; R8  in: number of char to write
-printADR_:
+print_:
         push rbp
         mov rbp, rsp
         sub rsp, 16*4;
@@ -140,24 +118,3 @@ printADR_:
         pop rbp;
         ret;
 ;
-
-printVAL_:
-        push rbp
-        mov rbp, rsp
-        sub rsp, 16*4;
-        push r13
-
-        
-        mov r13, [rdx]
-        mov rdx, r13
-
-        call printADR_
-
-        pop r13
-        mov rsp, rbp;
-        pop rbp;
-        ret;
-;
-
-
-        
