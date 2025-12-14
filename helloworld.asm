@@ -194,7 +194,7 @@ cwait:
         pop rbp;
 ret
 
-;r13 r14 xy in, rdx block in
+;rbx rcx xy in, rdx block in
 drawblock:
     push rbp
     mov rbp, rsp
@@ -205,12 +205,18 @@ drawblock:
                 mov r12, 3
                 dbout:
                         mov rax, rdx
+                        push rcx
                         call popLS
+                        pop rcx
 
                         cmp dl, 0
                         jz dbe
                                 mov r13, r12
+                                add r13, rbx
+                                sub r13, 2
                                 mov r14, r15
+                                add r14, rcx
+                                sub r14, 2
                                 call calcAdrG
                                 mov [r14], 178
                         dbe:
@@ -239,6 +245,8 @@ ret
 
 
 body:
+        mov rbx, 3
+        mov rcx, 16
         mov rdx, blockT
         call drawblock
         
