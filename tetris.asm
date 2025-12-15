@@ -13,14 +13,14 @@ section .data
     printGrid: db printT dup '?';
 
     cursorX: dq 5
-    cursorY: dq 5
+    cursorY: dq 3
 
     playX: equ 4
     playY: equ 4
     playW: equ 10
     playH: equ 20
     playT: equ playW*playH
-    playGrid: db playT dup 0;
+    playGrid: db 15 dup playW dup 0,5 dup playW dup 1;
     ;playGrid: db "a000000000b000000000c000000000d000000000e000000000f000000000g000000000h000000000i000000000j000000000k000000000l000000000m000000000n000000000o000000000p000000000q000000000r000000000s000000000t000000000!!!!!!!!!!!!!!!!!!!!!!!!",
     
     cyclecount: dq 0
@@ -32,7 +32,7 @@ section .data
     
     printBuffer: db 50 dup 's';
 
-    colors: db ' ', 176, 177, 178
+    colors: db ' ', 176, 177, 178, '?'
 
     message: db "helloworld", 0
 
@@ -44,6 +44,9 @@ section .data
     blockI: equ 240
     blockO: equ 1632
 
+    cyclesPerTick: equ 6
+    cycle: dq 0
+
     ;dup as you might guess repeats the expression!!! useful for defining large chunks of stuff.
 ;<
 
@@ -54,6 +57,12 @@ main:
     push rbp
     mov rbp, rsp
     sub rsp, 10*16
+
+    mov rdx, playGrid
+    add rdx, 120
+    mov [rdx], 1
+    sub rdx, 26
+    mov [rdx], 1        
 
     ;mov rcx, cyclecount
     ;mov [rcx], 0
@@ -98,91 +107,191 @@ wait_:
     jg waitloop
 ret
 
-body:    
+movCursor: ;rabx in
+    mov rcx, cursorX
+    mov rdx, [rcx]
+    add rdx, rax
+    mov [rcx], rdx
+    mov rcx, cursorY
+    mov rdx, [rcx]
+    add rdx, rbx
+    mov [rcx], rdx
+ret
+
+cursorDraw: ;rcx color
+    mov rax, cursorX
+    mov rax, [rax]
+    mov rbx, cursorY
+    mov rbx, [rbx]
+    call drawPiece
+ret
+
+updcursor: ;rabx in
+    push rax
+    push rbx
+    mov rcx, 0
+    call cursorDraw
+
+    
+    pop rbx
+    pop rax
+    push rax
+    push rbx
+    call movCursor
+    
+    call checkCollision
+    pop r8
+    pop r9
+
+    cmp al,0
+    jz ucs
+        mov rax, r9
+        mul rax, -1
+        mov rbx, r8
+        mul rbx, -1
+        call movCursor
+    ucs:
+
+    mov rcx, 3
+    call cursorDraw
+
+
+ret
+
+modTick:
+    mov rax, cycle
+    mov rbx, [rax]
+    inc rbx
+    mov rcx, 0
+    cmp rbx, cyclesPerTick
+    cmovnl rbx, rcx
+    mov [rax], rbx
+ret
+
+movement:
     ;reserve stack space
         push rbp
         mov rbp, rsp
         sub rsp, 32*16
     ;
 
-    mov rax, cursorX
-    mov rax, [rax]
-    mov rbx, cursorY
-    mov rbx, [rbx]
-    mov rcx, 0
-    call drawPiece
-    
-    mov rcx, 'W'
-    call GetAsyncKeyState
-    cmp al, 0
-    jz sw
-        mov rax, cursorY
-        mov rbx, [rax]
-        dec rbx
-        mov [rax], rbx
-    sw:
-    mov rcx, 'S'
-    call GetAsyncKeyState
-    cmp al, 0
-    jz ts
-        mov rax, cursorY
-        mov rbx, [rax]
-        inc rbx
-        mov [rax], rbx
-    ts:
+    mov r12, 0
+    mov r13, 0
+
     mov rcx, 'A'
     call GetAsyncKeyState
+    mov rbx, -1
     cmp al, 0
-    jz ta
-        mov rax, cursorX
-        mov rbx, [rax]
-        dec rbx
-        mov [rax], rbx
-    ta:
+    cmovnz r12, rbx
+
     mov rcx, 'D'
     call GetAsyncKeyState
+    mov rbx, 1
     cmp al, 0
-    jz td
-        mov rax, cursorX
-        mov rbx, [rax]
-        inc rbx
-        mov [rax], rbx
-    td:
-    
-    
+    cmovnz r12, rbx
+
+    mov rax, r12
+    mov rbx, 0
+    call updcursor
+
+    ;return stack space
+        mov rsp, rbp
+        pop rbp
+    ;
+ret
+
+checkCollision: ;al out
+    push r12
+    mov r12, 0
+
+    mov r10, pieceGrid
+    add r10, pieceT
+
+    mov rax, cursorX
+    mov rax, [rax]
+
+    mov rbx, cursorY
+    mov rbx, [rbx]
+
+    sub rax, 3
+    sub rbx, 3
+
+    mov r9, pieceH
+    cco:
+        mov r8, pieceW
+        cci:
+        
+            push rax
+            push rbx
+            add rax, r8
+            add rbx, r9
+            mov rcx, playW
+            mov rdx, playGrid
+            call calcAdr
+
+            dec r10
+
+            mov cl, [r10]
+            cmp cl, 0
+            jz ccs
+                mov cl, [rdx]
+                cmp cl, 0
+                mov rbx, 1
+                cmovnz r12, rbx
+            ccs:
+            pop rbx
+            pop rax
+
+        dec r8
+        jg cci
+    dec r9
+    jg cco
+
+    mov rax, r12
+    pop r12
+ret
+
+body:    
+    ;reserve stack space
+        push rbp
+        mov rbp, rsp
+        sub rsp, 32*16
+    ;
+    call modTick
+
+    mov rax, blockJ
+    call loadPiece
+
+
+    mov rax, cycle
+    mov rax, [rax]
+    cmp rax, 0
+    jnz be
+    mov rax, 0
+    mov rbx, 1
+    call updcursor
+
+    be:
+
+    call movement
+
 
     call drawcanv
-
-    mov rax, 5
-    mov rbx, 3
-    mov rdx, title
-    call printCanv
     
-    mov rcx, cyclecount
-    mov rcx, [rcx]
+   ; call checkCollision
+    
+    mov rcx, 0
     call int2String
     mov rax, 2
     mov rbx, 26
     mov rdx, printBuffer
     call printCanv
 
-    mov rax, blockJ
-    call loadPiece
-
-    mov rax, cursorX
-    mov rax, [rax]
-    mov rbx, cursorY
-    mov rbx, [rbx]
-    mov rcx, 3
-    call drawPiece
-
     call drawPlayGrid
-    
 
     mov rdx, printGrid
     mov r8, printT
     call printConsole
-
 
     ;return stack space
         mov rsp, rbp
@@ -383,6 +492,11 @@ drawcanv:
         mov rdx, playH
         mov r8, ' '
     call fill
+
+    mov rax, 5
+    mov rbx, 3
+    mov rdx, title
+    call printCanv
 
 ret
 
