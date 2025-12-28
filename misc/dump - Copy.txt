@@ -1,0 +1,158 @@
+
+fill:
+        push rbp
+        mov rbp, rsp
+        sub rsp, 10*16
+
+mov rcx, 5
+mov rdx, 2
+mov r8, 5
+mov r9, 5
+mov rbx, 'h'
+
+
+
+
+
+coloredCD:
+    mov rdx, currentColor
+    mov rcx, [rdx]
+    inc rcx
+    mov [rdx], rcx
+    call cursorDraw
+
+ret
+
+
+
+
+
+
+
+        
+        mov r10, 0
+        mov r11, rcx
+        ol:
+        mov rdx, message
+        add rdx, r11
+        mov [rdx], rbx
+
+        add r11, width
+        inc r10
+        cmp r10, r9
+        jl ol
+
+        mov rsp, rbp;
+        pop rbp;
+ret
+
+
+mov r10, 0
+flooper:
+mov rdx, message
+add rdx, r10
+mov [rdx], 250
+inc r10
+cmp r10, tl
+jl flooper
+
+
+
+
+
+
+
+extern ExitProcess
+extern GetStdHandle
+extern WriteConsoleA
+extern WriteFile
+
+section .data ;variables
+;DB automatically allocates space for variables
+        newline: db 10
+        msg: db "hello",0
+        tp: db 'x'
+    
+
+section .text           ; code section.
+global main		; standard gcc entry point
+
+
+main:
+push rbp
+mov rbp, rsp
+sub rsp, 10*16
+
+mov r12, 1
+
+mov r11, 99
+myloop:
+
+cmp r12, 0
+jz e
+dec r12,
+
+;divide eax by source, quotient in eax and remainder in rdx
+mov rax, r11
+mov rdx, 0
+mov ebx, 10
+div ebx
+mov r11, rax
+mov r10, rdx
+
+
+mov rdx, tp
+mov [rdx], '0'
+add [rdx], r10
+mov r8, 1
+call print_
+
+
+cmp r11, 0
+jg myloop
+
+e:
+mov rax, r11
+mov rsp, rbp;
+pop rbp;
+ret
+
+print_:
+        push rbp
+        mov rbp, rsp
+        sub rsp, 16*4;
+                        
+                mov rcx, -11;
+                ; RCX in: enum for handle to get (-11 for std output handle)
+                call GetStdHandle
+                ; RAX out: handle
+                mov rcx, rax;   
+                ;mov rdx, msg;
+                ;mov r8, len;
+                ; RCX in: handle to output buffer
+                ; RDX in: pointer to message 2 be written
+                ; R8  in: number of char to write
+                call WriteFile;
+
+                ; mov rax, 99
+
+        mov rsp, rbp;
+        pop rbp;
+        ret;
+;
+
+
+mov r13, 0
+mov r14, 0
+mov rdx, tp
+call ptoGrid
+
+mov rdx, message
+mov r8, tl
+call print_
+;call printg_
+
+mov rax, 8 
+mov rsp, rbp;
+pop rbp;
+ret
