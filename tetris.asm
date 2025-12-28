@@ -8,12 +8,14 @@ section .data
     title: db "TETRIS",0;
 
     printW: equ 40
-    printH: equ 35
+    printH: equ 30
     printT: equ printW*printH
     printGrid: db printT dup '?';
 
     cursorX: dq 5
     cursorY: dq 3
+
+    well: dq 222
 
     playX: equ 4
     playY: equ 4
@@ -23,6 +25,10 @@ section .data
     playGrid: db playT dup 0;
     ;playGrid: db "a000000000b000000000c000000000d000000000e000000000f000000000g000000000h000000000i000000000j000000000k000000000l000000000m000000000n000000000o000000000p000000000q000000000r000000000s000000000t000000000!!!!!!!!!!!!!!!!!!!!!!!!",
     
+    bag: db "0123456",0
+
+    currentPiece: db 0
+
     cyclecount: dq 0
 
     pieceW: equ 5
@@ -36,16 +42,19 @@ section .data
 
     message: db "helloworld", 0
 
-    blockL: equ 1570
-    blockJ: equ 802
-    blockS: equ 112
-    blockZ: equ 1584
-    blockT: equ 624
-    blockI: equ 240
-    blockO: equ 1632
-    blockE: equ 32
+    ;blockL: equ 1570
+    ;blockJ: equ 802
+    ;blockS: equ 112 ???
+    ;blockZ: equ 1584
+    ;blockT: dd 624
+    ;blockI: equ 240
+    ;blockO: equ 1632
+    ;blockE: equ 32
+    blocks: dd 1570, 802, 54, 1584, 624, 240, 1632, 32
 
-    cyclesPerTick: equ 6
+    currentColor: db 1
+
+    cyclesPerTick: equ 12
     cycle: dq 0
 
     ;dup as you might guess repeats the expression!!! useful for defining large chunks of stuff.
@@ -59,8 +68,8 @@ main:
     mov rbp, rsp
     sub rsp, 10*16
 
-    
-    mov rax, blockL
+    mov rax, currentPiece
+    mov rax, [rax]
     call loadPiece
 
 
@@ -91,7 +100,7 @@ main:
 ret
 
 wait_:
-    mov rax, 200000000
+    mov rax, 100000000
     waitloop:
         nop
         nop
@@ -127,6 +136,25 @@ cursorDraw: ;rcx color
     call drawPiece
 ret
 
+coloredCD:
+    mov rdx, currentColor
+    mov rcx, [rdx]
+    call cursorDraw
+
+ret
+
+modColor:
+    mov rdx, currentColor
+    mov cl, [rdx]
+    inc cl
+    
+    mov rbx, 1
+    cmp cl, 3
+    cmovg rcx, rbx
+
+    mov [rdx], cl
+ret
+
 updcursor: ;rabx in
     push rax
     push rbx
@@ -154,8 +182,7 @@ updcursor: ;rabx in
         call movCursor
     ucs:
 
-    mov rcx, 3
-    call cursorDraw
+    call coloredCD
 
 
     pop rax
@@ -273,13 +300,22 @@ movement:
     call GetAsyncKeyState
     mov rbx, -1
     cmp al, 0
-    cmovnz r12, rbx
+    jz manz
+        mov r12, rbx
+        mov rax, 3
+        call addWell
+    manz:
+
 
     mov rcx, 'D'
     call GetAsyncKeyState
     mov rbx, 1
     cmp al, 0
-    cmovnz r12, rbx
+    jz mdnz
+        mov r12, rbx
+        mov rax, 2
+        call addWell
+    mdnz:
 
     mov rax, r12
     mov rbx, 0
@@ -291,7 +327,9 @@ movement:
     jz mdts
         call downtick
         mov rdx, cycle
-        mov [rdx], 1
+        mov [rdx], 1;?
+        mov rax, 5
+        call addWell
     mdts:
 
     mov rcx, 'Q'
@@ -307,8 +345,7 @@ movement:
         jz ccwe
             call flipCW
         ccwe:
-        mov rcx, 3
-        call cursorDraw
+        call coloredCD
     mdtq:
     mov rcx, 'E'
     call GetAsyncKeyState
@@ -323,8 +360,7 @@ movement:
         jz cwe
             call flipCCW
         cwe:
-        mov rcx, 3
-        call cursorDraw
+        call coloredCD
     mdte:
 
 
@@ -402,12 +438,26 @@ downtick:
     call updcursor
     cmp al, 0
     jz dtr
+        
+        call resetBlock
+        ;call bagRandomize
+    dtr:
+ret
+
+resetBlock:
+
+    mov rbx, currentPiece
+    call bagRandomize
+    mov [rbx], al
+    call loadPiece
+
+    call modColor
+
     mov rdx, cursorX
     mov [rdx], 5
     mov rdx, cursorY
     mov [rdx], 2
 
-    dtr:
 ret
 
 clearPlayGrid:
@@ -442,6 +492,26 @@ clearPlayGrid:
 
 ret
 
+bagRandomize:
+    mov rdx, well
+    mov rax, [rdx]
+    mov rdx, 0
+    mov rbx, 7
+    div rbx
+    mov rcx, rdx
+    push rdx
+    ;call int2String
+    ;mov rdx, printBuffer
+    pop rax
+
+ret
+
+addWell: ;rax in toadd
+    mov rbx, well
+    add rax, [rbx]
+    mov [rbx], rax
+ret
+
 body:    
     ;reserve stack space
         push rbp
@@ -449,18 +519,29 @@ body:
         sub rsp, 32*16
     ;
     call modTick
+
+    mov rax, 1
+    call addWell
     
     mov rax, cycle
     mov rax, [rax]
     cmp rax, 0
     jnz be
-        ;call downtick
+        call downtick
     be:
 
     call movement
 
 
     call drawcanv
+    
+   ; mov rcx, well
+   ; mov rcx, [rcx]
+   ; call int2String
+    mov rax, 2
+    mov rbx, 2
+    mov rdx, printBuffer
+    call printCanv
     
    ; call checkCollision
     
@@ -523,7 +604,12 @@ drawPiece: ;rabx x, y, rcx col
     jg dpo
 ret
 
-loadPiece: ;rax piece
+loadPiece: ;rax piecenum
+
+    mul rax, 4
+    mov rbx, blocks
+    add rbx, rax
+    mov rax, [rbx]
     mov r8, pieceT
     lpf:
     dec r8
@@ -677,8 +763,8 @@ drawcanv:
         mov r8, 'j'
     call fill
 
-    mov rax, 5
-    mov rbx, 3
+    mov rax, playX
+    mov rbx, playY-1
     mov rdx, title
     call printCanv
 

@@ -72,7 +72,7 @@ main:
         cmp al, 0
         jnz quit
 
-     ;   jmp SupaLoop
+        jmp SupaLoop
 
 
         quit:

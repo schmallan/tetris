@@ -9,6 +9,26 @@ mov rdx, 2
 mov r8, 5
 mov r9, 5
 mov rbx, 'h'
+
+
+
+
+
+coloredCD:
+    mov rdx, currentColor
+    mov rcx, [rdx]
+    inc rcx
+    mov [rdx], rcx
+    call cursorDraw
+
+ret
+
+
+
+
+
+
+
         
         mov r10, 0
         mov r11, rcx
