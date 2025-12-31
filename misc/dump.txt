@@ -156,3 +156,20 @@ mov rax, 8
 mov rsp, rbp;
 pop rbp;
 ret
+
+
+
+    mov r10, 1
+    dcl:
+        push r10
+            mov rax, playX ;fill playarea
+            add rax, r10
+            mov rbx, playY
+            mov rcx, 1
+            mov rdx, simPlayH
+            mov r8, 250
+            call fill
+        pop r10
+        add r10, 4
+    cmp r10, simPlayW*2
+    jl dcl

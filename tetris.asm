@@ -7,10 +7,13 @@
 section .data
     title: db "TETRIS",0;
 
-    printW: equ 40
+    printW: equ 100
     printH: equ 30
     printT: equ printW*printH
     printGrid: db printT dup '?';
+
+    score: dq 99999
+    scoreMsg: db "SCORE:",0
 
     numPieces: equ 7
 
@@ -22,12 +25,16 @@ section .data
 
     playX: equ 4
     playY: equ 4
-    playW: equ 10+2
-    playH: equ 20+5+1
+    simPlayW: equ 10
+    playW: equ simPlayW+2
+    simPlayH: equ 20
+    playH: equ simPlayH+5+1
+    simPlayT: equ simPlayH*simPlayW
     playT: equ playW*playH
     playGrid: db playT dup 0;
     ;playGrid: db "a000000000b000000000c000000000d000000000e000000000f000000000g000000000h000000000i000000000j000000000k000000000l000000000m000000000n000000000o000000000p000000000q000000000r000000000s000000000t000000000!!!!!!!!!!!!!!!!!!!!!!!!",
-    
+    ghostGrid: db simPlayT dup 0;
+
     bag: db "0123456",0
 
     currentPiece: db 0
@@ -72,13 +79,12 @@ main:
     sub rsp, 10*16
 
     call resetBlock 
-
+     call drawcanv
     ;mov rcx, cyclecount
     ;mov [rcx], 0
     call clearPlayGrid
 
-    mainloop:
-        
+    mainloop: 
         mov rcx, cyclecount
         mov rdx, [rcx]
         inc rdx
@@ -97,6 +103,45 @@ main:
     mov rax, 0
     mov rsp, rbp;
     pop rbp;
+ret
+
+checkRows:
+
+    mov r8, 6
+    cro:
+        mov rax, 1
+        mov rbx, r8
+        sub rbx, 1
+        mov rcx, playW
+        mov rdx, playGrid
+        call calcAdr
+
+        mov rbx, 0
+        mov rcx, 0
+        cri:
+            mov al, [rdx]
+            cmp al, 0
+            jnz cris
+                inc rcx
+            cris:
+        inc rdx
+        inc rbx
+        cmp rbx, simPlayW
+        jl cri
+
+        push r8
+          ; mov rcx, r8
+            call int2String
+            mov rax, 30
+                pop rbx
+                push rbx
+                add rbx, playX-6
+            mov rdx, printBuffer
+            call printCanv
+        pop r8
+        inc r8
+    cmp r8, playH
+    jl cro
 ret
 
 wait_:
@@ -326,10 +371,24 @@ movement:
     jz mdts
         call downtick
         mov rdx, cycle
-        mov [rdx], 1;?
+        mov [rdx], 1;
         mov rax, 5
         call addWell
     mdts:
+    
+    mov rcx, ' '
+    call GetAsyncKeyState
+    mov rbx, 1
+    cmp al, 0
+    jz mdtsp
+        spaceL:
+            mov rax, 6
+            call addWell
+            
+            call downtick
+        cmp rax, 0
+        jz spaceL
+    mdtsp:
 
     mov rcx, 'Q'
     call GetAsyncKeyState
@@ -346,6 +405,7 @@ movement:
         ccwe:
         call coloredCD
     mdtq:
+
     mov rcx, 'E'
     call GetAsyncKeyState
     mov rbx, 1
@@ -430,19 +490,27 @@ checkCollision: ;al out
 ret
 
 downtick:
-
-    mov rax, 0
-    mov rbx, 1
-    call updcursor
+    call genericDowntick
     cmp al, 0
     jz dtr
         
         call resetBlock
-        ;call bagRandomize
+        call checkRows
+        mov rax, 1
     dtr:
 ret
 
+genericDowntick:
+
+    mov rax, 0
+    mov rbx, 1
+    call updcursor
+ret
+
 resetBlock:
+    
+    mov rdx, cycle
+    mov [rdx], 1;
 
     ;mov rbx, currentPiece
     call bagRandomize
@@ -455,7 +523,7 @@ resetBlock:
     mov rdx, cursorX
     mov [rdx], 5
     mov rdx, cursorY
-    mov [rdx], 2
+    mov [rdx], 5
 
 ret
 
@@ -584,25 +652,42 @@ body:
         call downtick
     be:
 
-    call movement
-
-
     call drawcanv
     
-    mov rax, 2
-    mov rbx, 25
-    mov rdx, bag
-    call printCanv
+    call movement
+    call drawGhost
     
-    mov rdx, bagLeft
-    mov rcx, 0
-    mov cl, [rdx]
-    call int2String
-    mov rax, 2
-    mov rbx, 26
-    mov rdx, printBuffer
+    mov rax, 27
+        mov rbx, 4
+        mov rdx, scoreMsg
+    ; call printCanv
+
+        mov rcx, score
+        mov rcx, [rcx]
+        call int2String
+
+        mov rax, 27
+        mov rbx, 5
+        mov rdx, printBuffer
+        ;call printCanv
+        
+        mov rax, 2
+        mov rbx, 25
+        mov rdx, bag
+        call printCanv
+        
+        mov rdx, bagLeft
+        mov rcx, 0
+        mov cl, [rdx]
+        call int2String
+        mov rax, 2
+        mov rbx, 26
+        mov rdx, printBuffer
     call printCanv
 
+    call drawGhostGrid
+
+    
     call drawPlayGrid
 
     mov rdx, printGrid
@@ -615,7 +700,57 @@ body:
     ;
 ret
 
-drawPiece: ;rabx x, y, rcx col
+drawGhost:
+
+    mov rax, cursorY
+    mov rax, [rax]
+    push rax
+
+    bodyL:
+        call genericDowntick
+    cmp rax, 0
+    jz bodyL
+
+    mov rcx, 0
+    call cursorDraw
+
+    ;clear ghost grid - abcd 8 13 14
+    mov rax, 0
+    mov rbx, 0
+    mov rcx, simPlayW
+    mov rdx, simPlayH
+    
+    mov r8, 0
+    mov r13, simPlayW
+    mov r14, ghostGrid
+    call genericfill
+    
+
+    mov rax, cursorX
+    mov rax, [rax]
+    dec rax
+    mov rbx, cursorY
+    mov rbx, [rbx]
+    sub rbx, 5
+    mov r12, simPlayW
+    mov r13, ghostGrid
+    mov rcx, 91
+    call genericDrawPiece
+
+    pop rax
+    mov rbx, cursorY
+    mov [rbx], rax
+    call coloredCD
+
+ret
+
+drawPiece:
+    mov r12, playW
+    mov r13, playGrid
+    call genericDrawPiece
+ret
+
+genericDrawPiece: ;rabx x, y, rcx col
     mov r10, pieceGrid
     add r10, pieceT
 
@@ -632,8 +767,8 @@ drawPiece: ;rabx x, y, rcx col
             push rcx
             add rax, r8
             add rbx, r9
-            mov rcx, playW
-            mov rdx, playGrid
+            mov rcx, r12;playW
+            mov rdx, r13;playGrid
             call calcAdr
             pop rcx
 
@@ -653,7 +788,9 @@ drawPiece: ;rabx x, y, rcx col
         jg dpi
     dec r9
     jg dpo
+    
 ret
+
 
 loadPiece: ;rax piecenum
 
@@ -809,9 +946,9 @@ drawcanv:
 
     mov rax, playX ;fill playarea
         mov rbx, playY
-        mov rcx, playW*2-2*2
-        mov rdx, playH-6
-        mov r8, 'j'
+        mov rcx, simPlayW*2
+        mov rdx, simPlayH
+        mov r8, ' '
     call fill
 
     mov rax, playX
@@ -857,7 +994,7 @@ int2String: ;rcx in
     add rcx, rbx
     mov [rcx], 0
     dec rcx
-    pil2: ;then move to printbuffer
+    pil2: ;then move to printBuffer
     mov rdx, 0
     mov r8, 10
     div r8
@@ -1007,16 +1144,19 @@ drawPlayGrid:
             mov rdx, printGrid
             call calcAdr
 
-            mov al, [r10]
+            mov bl, [r10]
             ;sub al, '0'
 
             mov rcx, colors
-            add cl, al
+            add cl, bl
             mov al, [rcx]
 
+            cmp bl, 0
+            jz dpgs
             mov [rdx], al
             inc rdx
             mov [rdx], al
+            dpgs:
 
             dec r9
 
@@ -1031,6 +1171,46 @@ drawPlayGrid:
     mov rsp, rbp;
     pop rbp;
 ret
+
+drawGhostGrid:
+    mov rax, playX
+    mov rbx, playY
+    mov rcx, printW
+    mov rdx, printGrid
+    call calcAdr
+
+    mov rax, ghostGrid
+
+    mov r8, 0
+    dggo:
+        mov r10, 0
+        push rdx
+        dggi:
+            mov bl, [rax]
+            cmp bl, 0
+            jz dggs
+                mov [rdx], bl
+                inc rdx
+                add bl, 2
+                mov [rdx], bl
+                dec rdx
+                
+            dggs:
+            inc rax
+            inc r10
+            add rdx, 2
+        cmp r10, simPlayW
+        jl dggi
+        pop rdx
+        add rdx, printW
+
+        inc r8
+    cmp r8, simPlayH
+    jl dggo
+ret
+
+
+
 
 calcTz: ;in rdx, out r8
 
