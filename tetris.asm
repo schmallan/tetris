@@ -84,15 +84,31 @@ main:
     ;mov [rcx], 0
     call clearPlayGrid
 
+    mov rax, 3
+    mov rbx, 5
+    mov rcx, 1
+    mov rdx, playH
+    
+    call drawcanv
+
     mainloop: 
         mov rcx, cyclecount
         mov rdx, [rcx]
         inc rdx
         mov [rcx], rdx
 
+        
+        mov rax, playX ;fill playarea
+            mov rbx, playY
+            mov rcx, simPlayW*2
+            mov rdx, simPlayH
+            mov r8, ' '
+        call fill
+
         call wait_
         call body
 
+            
 
         mov rcx, 'X'
         call GetAsyncKeyState
@@ -128,20 +144,65 @@ checkRows:
         inc rbx
         cmp rbx, simPlayW
         jl cri
+        
+        cmp rcx, 0
+        jnz crz
+            ;fall rows here
+            push r8
+            sub r8, 2
+            call rowFall
+            
+            pop r8
+            
+        crz:
 
-        push r8
-          ; mov rcx, r8
-            call int2String
-            mov rax, 30
-                pop rbx
-                push rbx
-                add rbx, playX-6
-            mov rdx, printBuffer
-            call printCanv
-        pop r8
         inc r8
     cmp r8, playH
     jl cro
+ret
+
+debug:
+
+            call drawPlayGrid
+            mov rdx, printGrid
+            mov r8, printT
+            call printConsole    
+    
+ret
+
+shiftRow: ;r8 row in
+    mov rax, 1
+    mov rbx, r8
+    mov rcx, playW
+    mov rdx, playGrid
+    call calcAdr
+
+    mov r8, rdx
+    add r8, playW
+
+    mov rax, 0
+    sro:
+        mov r10b, [rdx]
+        mov [r8], r10b
+        mov [rdx], 0
+        
+        inc r8
+        inc rdx
+    inc rax
+    cmp rax, simPlayW
+    jl sro
+ret
+
+rowFall:
+    mov r11, r8
+
+    rfo:
+        mov r8, r11
+        call shiftRow
+    dec r11
+    cmp r11, 1
+    jg rfo
+
 ret
 
 wait_:
@@ -336,6 +397,20 @@ movement:
         mov rbp, rsp
         sub rsp, 32*16
     ;
+    
+    mov rcx, ' '
+    call GetAsyncKeyState
+    mov rbx, 1
+    cmp al, 0
+    jz mdtsp
+        spaceL:
+            mov rax, 6
+            call addWell
+            
+            call downtick
+        cmp rax, 0
+        jz spaceL
+    mdtsp:
 
     mov r12, 0
     mov r13, 0
@@ -376,19 +451,6 @@ movement:
         call addWell
     mdts:
     
-    mov rcx, ' '
-    call GetAsyncKeyState
-    mov rbx, 1
-    cmp al, 0
-    jz mdtsp
-        spaceL:
-            mov rax, 6
-            call addWell
-            
-            call downtick
-        cmp rax, 0
-        jz spaceL
-    mdtsp:
 
     mov rcx, 'Q'
     call GetAsyncKeyState
@@ -651,8 +713,6 @@ body:
     jnz be
         call downtick
     be:
-
-    call drawcanv
     
     call movement
     call drawGhost
@@ -944,12 +1004,6 @@ drawcanv:
         mov rdx, 1
     call fill
 
-    mov rax, playX ;fill playarea
-        mov rbx, playY
-        mov rcx, simPlayW*2
-        mov rdx, simPlayH
-        mov r8, ' '
-    call fill
 
     mov rax, playX
     mov rbx, playY-1
